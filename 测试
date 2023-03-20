@@ -1,0 +1,1345 @@
+<template>
+  <div>
+    <el-scrollbar height="680px">
+      <el-form v-loading="formLoading" ref="refForm" :model="form" :rules="rules" label-width="auto">
+        <el-row>
+          <el-col :span="3">
+          </el-col>
+          <el-col :span="21">
+            <el-divider direction="vertical" style="height: 100%; float: left; "/>
+            <div class="ml30" style="width: 95%">
+              <el-form-item label="上架店铺" label-width="80" prop="shopId">
+                <SelectShop :data="{platform:'ebay',shopId:form.shopId}" @change="changeSelectShop"/>
+              </el-form-item>
+              <el-form-item v-if="form.shopId" label="站点" label-width="80" prop="site">
+                <el-select v-model="form.site" @change="changeSite">
+                  <el-option v-for=" s in siteOption" :label="s.label" :value="s.value"/>
+                </el-select>
+              </el-form-item>
+              <div v-if="form.shopId">
+                <div class="title_b">
+                  <b>站点类目</b>
+                </div>
+                <el-form-item>
+                  <el-scrollbar style="display:inline-block">
+                    <el-row style="width: 1000px">
+                      <el-col :span="5">
+                        <el-cascader-panel ref="refCascaderParent" v-model="valueParentLevel" :props="optionParentLevel" @change="changeparentLevel"/>
+                      </el-col>
+                      <el-col :span="19">
+                        <el-cascader-panel ref="refCascaderChild" v-if="propsChildLevel" v-model="valueChildLevel" :props="propsChildLevel" @change="changeChildLevel"/>
+                      </el-col>
+                    </el-row>
+                  </el-scrollbar>
+                </el-form-item>
+                <div v-if="cascaderChildData">
+                  <el-form-item label="刊登类目" label-width="80" prop="itemDto.primaryCategory.categoryID">
+                    <span v-for="(c,index) in cascaderChildData">
+                      <el-button type="primary" link>{{ c }}</el-button>
+                      <span v-if="index < cascaderChildData.length -1">&nbsp;>&nbsp;</span>
+                    </span>
+                  </el-form-item>
+                </div>
+                <el-button v-if="!secondaryCategorySwitch" @click="clickSecondaryCategorySwitch('add')">添加副类目</el-button>
+                <el-button v-else @click="clickSecondaryCategorySwitch('del')">删除</el-button>
+              </div>
+              <!-- 副类目 -->
+              <div v-if="secondaryCategorySwitch" class="mt20">
+                <el-form-item>
+                  <el-scrollbar style="display:inline-block">
+                    <el-row style="width: 1000px">
+                      <el-col :span="5">
+                        <el-cascader-panel ref="refCascaderParent2" v-model="valueParentLevel2" :props="optionParentLevel" @change="changeparentLevel2"/>
+                      </el-col>
+                      <el-col :span="19">
+                        <el-cascader-panel ref="refCascaderChild2" v-if="propsChildLevel2" v-model="valueChildLevel2" :props="propsChildLevel2" @change="changeChildLevel2"/>
+                      </el-col>
+                    </el-row>
+                  </el-scrollbar>
+                </el-form-item>
+                <div v-if="cascaderChildData2">
+                  <el-form-item label="副类目" label-width="80" prop="itemDto.primaryCategory.categoryID">
+                    <span v-for="(c,index) in cascaderChildData2">
+                      <el-button type="primary" link>{{ c }}</el-button>
+                      <span v-if="index < cascaderChildData2.length -1">&nbsp;>&nbsp;</span>
+                    </span>
+                  </el-form-item>
+                </div>
+              </div>
+              <!-- 基本属性 -->
+              <div>
+                <div class="title_b">
+                  <b>基本属性</b>
+                </div>
+                <!--                <el-form-item label="主图" label-width="80">-->
+                <!--                  <el-upload class="avatar-uploader" ref="upload" action="#" list-type="avatar-card">-->
+                <!--                    <img v-if="imageUrl" :src="imageUrl" class="avatar"/>-->
+                <!--                    <el-icon class="avatar-uploader-icon">-->
+                <!--                      <Plus/>-->
+                <!--                    </el-icon>-->
+                <!--                  </el-upload>-->
+                <!--                </el-form-item>-->
+                <el-form-item label="产品图" label-width="80">
+                  <ImageUpload v-model:modelValue.sync="form.itemDto.pictureDetails.pictureURL"/>
+                </el-form-item>
+                <el-form-item label="标题" label-width="80" prop="itemDto.title">
+                  <el-input v-model="form.itemDto.title" :rows="2" type="textarea"/>
+                </el-form-item>
+                <el-form-item label="子标题" label-width="80" prop="itemDto.subTitle">
+                  <template #label>
+                    <span>子标题</span>
+                    <i class="ri-money-dollar-circle-fill"></i>
+                  </template>
+                  <el-input v-model="form.itemDto.subTitle"/>
+                </el-form-item>
+                <el-form-item label="平台SKU" label-width="80" prop="itemDto.sku">
+                  <el-input v-model="form.itemDto.sku" style="width: 30%;"/>
+                </el-form-item>
+                <el-form-item label="详细描述" label-width="80" prop="itemDto.description">
+                  <template #label>
+                    <b>详细描述</b>
+                  </template>
+                  <el-select class="mb10" v-model="valueDescriptionOption">
+                    <el-option v-for="d in descriptionEditorOption" :label="d.label" :value="d.label"/>
+                  </el-select>
+                  <Editor :valueHtml="form.itemDto.description" @change="changeDescriptionEditor"/>
+                </el-form-item>
+                <el-form-item label="持续时间" label-width="80" prop="itemDto.listingDuration">
+                  <el-select v-model="form.itemDto.listingDuration">
+                    <el-option v-for=" s in listingDurationOption" :label="s.label" :value="s.value"/>
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="物品状况" label-width="80">
+                  <el-select v-model="form.itemDto.conditionID" @click="getCategoryFeaturesOption" :loading="conditionOptionLoading">
+                    <el-option v-for=" s in conditionOption" :label="s.displayName" :value="s.id"/>
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="刊登类型" label-width="80" prop="itemDto.listingType">
+                  <el-radio-group v-model="listingType">
+                    <el-radio label="FIXED_PRICE_ITEM">固价</el-radio>
+                    <el-radio label="AUCTION">拍卖</el-radio>
+                    <el-radio v-if="attributes" label="variation">多属性</el-radio>
+                  </el-radio-group>
+                </el-form-item>
+                <div v-if="listingType === 'variation'">
+                  <Variations :data="form" :attributes="attributes" @change="changeVariations"/>
+                </div>
+                <div v-else>
+                  <el-form-item label="价格" label-width="80" prop="itemDto.startPrice.value">
+                    <el-input type="number" style="width: 30%" v-model="form.itemDto.startPrice.value">
+                      <template #prefix>
+                        <span>$&nbsp;</span>
+                      </template>
+                    </el-input>
+                  </el-form-item>
+                  <!--                  <el-form-item label="议价" label-width="80">-->
+                  <!--                    <template #label>-->
+                  <!--                      <b>议价</b>-->
+                  <!--                    </template>-->
+                  <!--                    <el-checkbox label="接受"/>-->
+                  <!--                  </el-form-item>-->
+                  <!--                  <el-form-item label="起拍价" label-width="80">-->
+                  <!--                    <el-input type="number" style="width: 30%">-->
+                  <!--                      <template #prefix>-->
+                  <!--                        <span>$&nbsp;</span>-->
+                  <!--                      </template>-->
+                  <!--                    </el-input>-->
+                  <!--                  </el-form-item>-->
+                  <el-form-item label="UPC" label-width="80">
+                    <el-input v-model="form.itemDto.productListingDetails.upc" style="width: 30%"/>
+                  </el-form-item>
+                  <el-form-item label="ENA" label-width="80">
+                    <el-input v-model="form.itemDto.productListingDetails.ena" style="width: 30%"/>
+                  </el-form-item>
+                  <!--                  <el-form-item label="折扣" label-width="80">-->
+                  <!--                    <el-input style="width: 30%"/>-->
+                  <!--                  </el-form-item>-->
+                  <el-form-item label="初始库存" label-width="80">
+                    <el-input v-model="form.itemDto.quantity" style="width: 30%"/>
+                  </el-form-item>
+                </div>
+              </div>
+              <!-- 产品属性 -->
+              <div v-if="attributes">
+                <div class="title_b">
+                  <b>产品属性</b>
+                </div>
+                <el-form-item v-for="(a,index) in attributes" :label="a.localizedAspectName" :prop="a.aspectConstraint.aspectRequired?'itemDto.itemSpecifics.nameValueList.'+index+'.value':''" :rules="a.aspectConstraint.aspectRequired?rules['itemDto.itemSpecifics.nameValueList.value']:{}">
+                  <el-select v-model="form.itemDto.itemSpecifics.nameValueList[index].value[0]" v-if="a.aspectConstraint.aspectMode === 'SELECTION_ONLY' || a.aspectValues">
+                    <el-option v-for="item in a.aspectValues" :label="item.localizedValue" :value="item.localizedValue"></el-option>
+                  </el-select>
+                  <el-input v-model="form.itemDto.itemSpecifics.nameValueList[index].value[0]" v-else/>
+                </el-form-item>
+              </div>
+              <!-- 付款方式 -->
+              <div>
+                <div class="title_b">
+                  <b>付款方式</b>
+                </div>
+                <el-form-item :label-width="labelWidth" label="付款服务">
+                  <el-select v-model="paymentPoliciesId" @click="getPaymentPoliciesOption" :loading="paymentPoliciesLoading" @change="changePaymentPolicies">
+                    <el-option v-for=" s in paymentPolicies" :label="s.name" :value="s.paymentPolicyId"/>
+                  </el-select>
+                  <!--                  <el-radio-group>-->
+                  <!--                    <el-radio label="1">管理支付<span style="color: #bfbfbf;">(Payoneer收款)</span></el-radio>-->
+                  <!--                    <el-radio label="2">PayPal</el-radio>-->
+                  <!--                  </el-radio-group>-->
+                </el-form-item>
+                <!--            <el-form-item :label-width="labelWidth" label="立即付款">-->
+                <!--              <el-checkbox label="需要"/>-->
+                <!--            </el-form-item>-->
+                <!--            <el-form-item :label-width="labelWidth" label="付款说明">-->
+                <!--              <el-input :rows="5" type="textarea"/>-->
+                <!--            </el-form-item>-->
+              </div>
+              <!-- 货运方式 -->
+              <div>
+                <div class="title_b">
+                  <b>货运方式</b>
+                </div>
+                <el-form-item :label-width="labelWidth" label="运输类型" prop="itemDto.shippingDetails.shippingType">
+                  <el-select v-model="form.itemDto.shippingDetails.shippingType">
+                    <el-option v-for="s in shippingTypeOption" :label="s.label" :value="s.value"/>
+                  </el-select>
+                </el-form-item>
+                <ul style="color: #42b983;font-size:20px">
+                  <li>
+                    <div style="font-size: 15px;" class="mb10"><b>包裹</b></div>
+                    <el-form-item label="包裹类型" :label-width="labelWidth">
+                      <el-select v-model="form.itemDto.shippingPackageDetails.shippingPackage" @click="getdShippingPackage">
+                        <el-option v-for="s in shippingPackageOption" :label="s.label" :value="s.value"/>
+                      </el-select>
+                    </el-form-item>
+                    <el-form-item label="测量单位" :label-width="labelWidth">
+                      <el-select v-model="form.itemDto.shippingPackageDetails.measurementUnit" @click="getdShippingPackage">
+                        <el-option label="English" value="US"/>
+                      </el-select>
+                    </el-form-item>
+                    <el-form-item label="重量" :label-width="labelWidth">
+                      <el-row :gutter="20">
+                        <el-col :span="10">
+                          <el-input v-model="form.itemDto.shippingPackageDetails.weightMajor.value">
+                            <template #suffix>
+                              lbs
+                            </template>
+                          </el-input>
+                        </el-col>
+                        <el-col :span="10">
+                          <el-input v-model="form.itemDto.shippingPackageDetails.weightMinor.value">
+                            <template #suffix>
+                              oz
+                            </template>
+                          </el-input>
+                        </el-col>
+                      </el-row>
+                    </el-form-item>
+                    <el-form-item label="尺寸" :label-width="labelWidth">
+                      <el-row :gutter="20">
+                        <el-col :span="8">
+                          <el-input placeholder="长" v-model="form.itemDto.shippingPackageDetails.packageLength.value">
+                            <template #suffix>
+                              inch
+                            </template>
+                          </el-input>
+                        </el-col>
+                        <el-col :span="8">
+                          <el-input placeholder="宽" v-model="form.itemDto.shippingPackageDetails.packageWidth.value">
+                            <template #suffix>
+                              inch
+                            </template>
+                          </el-input>
+                        </el-col>
+                        <el-col :span="8">
+                          <el-input placeholder="高" v-model="form.itemDto.shippingPackageDetails.packageDepth.value">
+                            <template #suffix>
+                              inch
+                            </template>
+                          </el-input>
+                        </el-col>
+                      </el-row>
+                    </el-form-item>
+                  </li>
+                  <li>
+                    <div style="font-size: 15px;" class="mb10"><b>国内运输</b></div>
+                    <!--                <el-checkbox-group style="width: 100px;">-->
+                    <!--                  <el-checkbox label="使用特定国家/区域运费设置(Shipping rate tables)"/>-->
+                    <!--                  <el-checkbox label="使用ebay账号标准运输折扣设置(Flat rate rule)"/>-->
+                    <!--                  <el-checkbox label="使用ebay账号促销运输折扣设置(Promotional rate rule)"/>-->
+                    <!--                </el-checkbox-group>-->
+                    <el-table class="mb10 mt10" :data="form.itemDto.shippingDetails.shippingServiceOptions">
+                      <el-table-column label="国内运输方式">
+                        <template #default="scope">
+                          <el-form-item
+                              style="margin-bottom: 0"
+                              :prop="'itemDto.shippingDetails.shippingServiceOptions.'+scope.$index+'.shippingService' "
+                              :rules="rules['itemDto.shippingDetails.shippingServiceOptions.shippingService']">
+                            <el-select v-model="scope.row.shippingService">
+                              <el-option v-for="s in shippingServiceCodeTypeOption" :label="s.label" :value="s.value"/>
+                            </el-select>
+                          </el-form-item>
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="运费">
+                        <template #default="scope">
+                          <el-form-item
+                              style="margin-bottom: 0"
+                              :prop="'itemDto.shippingDetails.shippingServiceOptions.'+scope.$index+'.shippingServiceCost' "
+                              :rules="rules['itemDto.shippingDetails.shippingServiceOptions.shippingServiceCost']">
+                            <el-input v-model="scope.row.shippingServiceCost.value">
+                              <template #prefix>
+                                {{ currencyDisplay }}&nbsp;
+                              </template>
+                            </el-input>
+                          </el-form-item>
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="每件加收">
+                        <template #default="scope">
+                          <el-form-item
+                              style="margin-bottom: 0"
+                              :prop="'itemDto.shippingDetails.shippingServiceOptions.'+scope.$index+'.shippingServiceAdditionalCost' "
+                              :rules="rules['itemDto.shippingDetails.shippingServiceOptions.shippingServiceAdditionalCost']">
+                            <el-input v-model="scope.row.shippingServiceAdditionalCost.value">
+                              <template #prefix>
+                                {{ currencyDisplay }}&nbsp;
+                              </template>
+                            </el-input>
+                          </el-form-item>
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="操作" width="80">
+                        <template #default="scope">
+                          <el-button link type="primary" icon="Plus"
+                                     @click="form.itemDto.shippingDetails.shippingServiceOptions.push({shippingService: null,shippingServiceCost: {currencyID: form.itemDto.startPrice.currencyID, value: 0.0},shippingServiceAdditionalCost: {currencyID: null, value: 0.0}})"/>
+                          <el-button link type="danger" icon="Delete" @click="form.itemDto.shippingDetails.shippingServiceOptions.splice(scope.$index,1)"/>
+                        </template>
+                      </el-table-column>
+                    </el-table>
+                  </li>
+                  <li>
+                    <div style="font-size: 15px;" class="mb10"><b>国际运输</b></div>
+                    <!--                <el-checkbox-group style="width: 100px;">-->
+                    <!--                  <el-checkbox label="使用特定国家/区域运费设置(Shipping rate tables)"/>-->
+                    <!--                  <el-checkbox label="使用ebay账号标准运输折扣设置(Flat rate rule)"/>-->
+                    <!--                  <el-checkbox label="使用ebay账号促销运输折扣设置(Promotional rate rule)"/>-->
+                    <!--                </el-checkbox-group>-->
+                    <el-table class="mb10 mt10" :data="form.itemDto.shippingDetails.internationalShippingServiceOption">
+                      <el-table-column label="国际运输方式">
+                        <template #default="scope">
+                          <el-form-item :prop="'itemDto.shippingDetails.internationalShippingServiceOption.'+scope.$index+'.shippingService' " :rules="rules['itemDto.shippingDetails.internationalShippingServiceOption.shippingService']">
+                            <el-select v-model="scope.row.shippingService">
+                              <el-option v-for="s in internationalShippingServiceCodeTypeOption" :label="s.label" :value="s.value"/>
+                            </el-select>
+                          </el-form-item>
+                          <el-form-item label-width="50" style="margin-bottom: 0" label="运到">
+                            <el-checkbox-group style="width: 100%;" v-model="scope.row.shipToLocation" @change="changeShipToLocationWorldwide(scope.row.shipToLocation,scope.$index)">
+                              <el-checkbox label="Worldwide"/>
+                            </el-checkbox-group>
+                            <el-checkbox-group :disabled="scope.row.shipToLocation[0] === 'Worldwide'" v-model="scope.row.shipToLocation">
+                              <el-checkbox label="US"/>
+                            </el-checkbox-group>
+                          </el-form-item>
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="运费">
+                        <template #default="scope">
+                          <el-form-item
+                              style="margin-bottom: 0"
+                              :prop="'itemDto.shippingDetails.shippingServiceOptions.'+scope.$index+'.shippingServiceCost' "
+                              :rules="rules['itemDto.shippingDetails.shippingServiceOptions.shippingServiceCost']">
+                            <el-input v-model="scope.row.shippingServiceCost.value">
+                              <template #prefix>
+                                {{ currencyDisplay }}&nbsp;
+                              </template>
+                            </el-input>
+                          </el-form-item>
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="每件加收">
+                        <template #default="scope">
+                          <el-form-item
+                              style="margin-bottom: 0"
+                              :prop="'itemDto.shippingDetails.shippingServiceOptions.'+scope.$index+'.shippingServiceAdditionalCost' "
+                              :rules="rules['itemDto.shippingDetails.shippingServiceOptions.shippingServiceAdditionalCost']">
+                            <el-input v-model="scope.row.shippingServiceAdditionalCost.value">
+                              <template #prefix>
+                                {{ currencyDisplay }}&nbsp;
+                              </template>
+                            </el-input>
+                          </el-form-item>
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="操作" width="80">
+                        <template #default="scope">
+                          <el-button link type="primary" icon="Plus"
+                                     @click="form.itemDto.shippingDetails.internationalShippingServiceOption.push({shipToLocation:[],shippingService: null,shippingServiceCost: {currencyID: form.itemDto.startPrice.currencyID, value: 0.0},shippingServiceAdditionalCost: {currencyID: null, value: 0.0}})"/>
+                          <el-button link type="danger" icon="Delete" @click="form.itemDto.shippingDetails.internationalShippingServiceOption.splice(scope.$index,1)"/>
+                        </template>
+                      </el-table-column>
+                    </el-table>
+                  </li>
+                </ul>
+                <el-form-item :label-width="labelWidth" label="其他" prop="itemDto.dispatchTimeMax">
+                  <div class="mb10">
+                    <span>处理时间&nbsp;&nbsp;</span>
+                    <el-input-number style="width: 100px" v-model="form.itemDto.dispatchTimeMax" :min="1" :max="50"/>
+                    <span>&nbsp;&nbsp;工作日</span>
+                  </div>
+                  <!--              <div>-->
+                  <!--                <Editor/>-->
+                  <!--              </div>-->
+                </el-form-item>
+              </div>
+              <!-- 不运送地区 -->
+              <div>
+                <div class="title_b">
+                  <b>不运送地区</b>
+                </div>
+                <el-form-item label-width="100" label="不运送地区">
+                  <div>
+                    <el-radio-group v-model="radioExcludeShipToLocation" @change="changeExcludeShipToLocation">
+                      <el-radio label="false">运送至所有国家</el-radio>
+                      <el-radio label="true">选择不运送地区</el-radio>
+                    </el-radio-group>
+                  </div>
+                  <div style="width: 100%">
+                    <el-cascader v-if="radioExcludeShipToLocation === 'true'" style="width: 250px" v-model="form.itemDto.shippingDetails.excludeShipToLocation" :options="productSiteOption" :props="{multiple: true,label:'label',value:'countryCode',children:'children',emitPath:false}"
+                                 collapse-tags-tooltip collapse-tags/>
+
+                  </div>
+                </el-form-item>
+              </div>
+              <!-- 退货政策 -->
+              <div>
+                <div class="title_b">
+                  <b>退货政策</b>
+                </div>
+                <ul style="color: #42b983;font-size:20px">
+                  <li>
+                    <div style="font-size: 15px;" class="mb10"><b>国内退货</b></div>
+                    <el-form-item :label-width="labelWidth" label="退货政策">
+                      <el-checkbox v-model="form.itemDto.returnPolicy.returnsAcceptedOption" label="支持" true-label="ReturnsAccepted" false-label="ReturnsNotAccepted"/>
+                    </el-form-item>
+                    <div v-if="form.itemDto.returnPolicy.returnsAcceptedOption === 'ReturnsAccepted'">
+                      <el-form-item :label-width="labelWidth" label="退货天数" prop="itemDto.returnPolicy.returnsWithinOption">
+                        <el-select v-model="form.itemDto.returnPolicy.returnsWithinOption">
+                          <el-option label="Days_14" value="Days_14"/>
+                          <el-option label="Days_30" value="Days_30"/>
+                          <el-option label="Days_60" value="Days_60"/>
+                        </el-select>
+                      </el-form-item>
+                      <el-form-item :label-width="labelWidth" label="承担方" prop="itemDto.returnPolicy.shippingCostPaidByOption">
+                        <el-select v-model="form.itemDto.returnPolicy.shippingCostPaidByOption">
+                          <el-option label="Buyer" value="Buyer"/>
+                          <el-option label="Seller" value="Seller"/>
+                        </el-select>
+                      </el-form-item>
+                      <el-form-item :label-width="labelWidth" label="退货方式" prop="itemDto.returnPolicy.refundOption">
+                        <el-select v-model="form.itemDto.returnPolicy.refundOption">
+                          <el-option label="MoneyBack" value="MoneyBack"/>
+                          <el-option label="MoneyBackOrExchange" value="MoneyBackOrExchange"/>
+                          <el-option label="MoneyBackOrReplacement" value="MoneyBackOrReplacement"/>
+                        </el-select>
+                        <span class="ml10" style="color: #bfbfbf;">刊登至非美国站时，将强制为Money Back</span>
+                      </el-form-item>
+                      <!--                  <el-form-item :label-width="labelWidth" label="退货政策">-->
+                      <!--                    <el-input :rows="5" type="textarea"/>-->
+                      <!--                  </el-form-item>-->
+                    </div>
+                  </li>
+                  <li>
+                    <div style="font-size: 15px;" class="mb10"><b>国际退货</b></div>
+                    <el-form-item :label-width="labelWidth" label="退货政策" prop="itemDto.returnPolicy.internationalReturnsAcceptedOption">
+                      <el-checkbox v-model="form.itemDto.returnPolicy.internationalReturnsAcceptedOption" label="支持" true-label="ReturnsAccepted" false-label="ReturnsNotAccepted"/>
+                    </el-form-item>
+                    <div v-if="form.itemDto.returnPolicy.internationalReturnsAcceptedOption === 'ReturnsAccepted'">
+                      <el-form-item :label-width="labelWidth" label="退货天数" prop="itemDto.returnPolicy.internationalReturnsWithinOption">
+                        <el-select v-model="form.itemDto.returnPolicy.internationalReturnsWithinOption">
+                          <el-option label="Days_14" value="Days_14"/>
+                          <el-option label="Days_30" value="Days_30"/>
+                          <el-option label="Days_60" value="Days_60"/>
+                        </el-select>
+                      </el-form-item>
+                      <el-form-item :label-width="labelWidth" label="承担方" prop="itemDto.returnPolicy.internationalShippingCostPaidByOption">
+                        <el-select v-model="form.itemDto.returnPolicy.internationalShippingCostPaidByOption">
+                          <el-option label="Buyer" value="Buyer"/>
+                          <el-option label="Seller" value="Seller"/>
+                        </el-select>
+                      </el-form-item>
+                      <el-form-item :label-width="labelWidth" label="退货方式" prop="itemDto.returnPolicy.internationalRefundOption">
+                        <el-select v-model="form.itemDto.returnPolicy.internationalRefundOption">
+                          <el-option label="MoneyBack" value="MoneyBack"/>
+                          <el-option label="MoneyBackOrExchange" value="MoneyBackOrExchange"/>
+                          <el-option label="MoneyBackOrReplacement" value="MoneyBackOrReplacement"/>
+                        </el-select>
+                        <span class="ml10" style="color: #bfbfbf;">刊登至非美国站时，将强制为Money Back</span>
+                      </el-form-item>
+                      <!--                  <el-form-item :label-width="labelWidth" label="退货政策">-->
+                      <!--                    <el-input :rows="5" type="textarea"/>-->
+                      <!--                  </el-form-item>-->
+                    </div>
+                  </li>
+                </ul>
+              </div>
+              <!-- 物品所在地 -->
+              <div>
+                <div class="title_b">
+                  <b>物品所在地</b>
+                </div>
+                <el-form-item :label-width="labelWidth" label="所在国家" prop="itemDto.location">
+                  <el-cascader v-model="form.itemDto.location" :options="productSiteOption" :props="{label:'label',value:'countryCode',children:'children',emitPath:false}"/>
+                </el-form-item>
+                <!--                <el-form-item :label-width="labelWidth" label="所在地区">-->
+                <!--                  <el-input v-model="form.itemDto.location"/>-->
+                <!--                </el-form-item>-->
+                <el-form-item :label-width="labelWidth" label="邮编" prop="itemDto.postalCode">
+                  <el-input v-model="form.itemDto.postalCode" style="width: 200px"/>
+                </el-form-item>
+                <!--            <el-form-item label="itemLocation" label-width="80">-->
+                <!--              <template #label>-->
+                <!--                <b>详细描述</b>-->
+                <!--              </template>-->
+                <!--              <Editor @change="changeItemLocationEditor"/>-->
+                <!--            </el-form-item>-->
+              </div>
+            </div>
+          </el-col>
+        </el-row>
+      </el-form>
+    </el-scrollbar>
+    <div style="margin-left: 90%">
+      <el-button type="primary" @click="handleVerifyPublish" :disabled="btnDisabled">校验并保存</el-button>
+    </div>
+
+    <el-dialog title="预计金额" v-model="open" width="30%">
+      <el-scrollbar height="400px">
+        <el-table :data="feeTable" style="width: 100%">
+          <el-table-column type="index" align="center" label="序号" width="80"/>
+          <el-table-column prop="name" align="center" label="名称" width="180"/>
+          <el-table-column align="center" label="金额" width="180">
+            <template #default="scope">
+              {{ scope.row.fee.currencyID }} {{ scope.row.fee.value }}
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-scrollbar>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button type="primary" @click="handlePublish">刊登</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+  </div>
+</template>
+
+<script setup name="PublishEbay1">
+import {getCurrentInstance, ref, reactive} from "vue";
+import {getItemAspectsForCategoryCache, getCategoryCache, getDefaultCategoryTreeId} from "../../../../api/ebay/apis/category";
+import {getCategoryFeatures} from "../../../../api/ebay/apis/apis";
+import {getPaymentPolicies} from "../../../../api/ebay/apis/account";
+import SelectShop from "../../../../components/Select/shop/selectShop";
+import ImageUpload from "../../../../components/ImageUpload";
+import {getProduct} from "../../../../api/product/product";
+import Editor from "../../../../components/Editor";
+import {addItem, verifyAddItem, verifyAddFixedPriceItem} from "../../../../api/ebay/apis/publish";
+import {siteCodeListEnum} from "../../../../assets/enum/ebay/ebaySiteCodeListEnum"
+import {siteCodeEnum} from "../../../../assets/enum/ebay/ebaySiteCodeEnum"
+import {listingDurationCodeEnum} from "../../../../assets/enum/ebay/ebayListingDurationCodeEnum"
+import {shippingTypeCodeTypeEnum} from "../../../../assets/enum/ebay/ebayShippingTypeCodeTypeEnum"
+import {shippingServiceCodeTypeEnum} from "../../../../assets/enum/ebay/ebayShippingServiceCodeTypeEnum"
+import {getMarketplaceMap} from "../../../../api/commonly/country";
+import {getShippingServiceDetails, getdShippingPackageDetails} from "../../../../assets/enum/ebay/ebayGetEBayDetails"
+import {descriptionSelectOption} from "../../../../api/ebay/description"
+import Variations from "./variations";
+
+const props = defineProps({
+  data: {
+    type: Object,
+    default: {}
+  }
+})
+const {proxy} = getCurrentInstance();
+
+const shopId = ref(null);
+const labelWidth = ref('80');
+const valueParentLevel = ref(null);
+const valueChildLevel = ref(null);
+const optionParentLevel = ref(null);
+const propsChildLevel = ref(null);
+const cascaderChildData = ref(null);
+const secondaryCategorySwitch = ref(false)
+const valueParentLevel2 = ref(null);
+const valueChildLevel2 = ref(null);
+const propsChildLevel2 = ref(null);
+const cascaderChildData2 = ref(null);
+const attributes = ref(null);
+const formLoading = ref(false);
+const skuData = ref(null);
+const productImages = ref([]);
+const siteOption = ref([]);
+const listingDurationOption = ref([]);
+const site = ref(siteCodeEnum())
+const siteList = ref(siteCodeListEnum())
+const shippingTypeOption = ref([])
+const shippingPackageOption = ref([])
+const shippingServiceCodeTypeOption = ref([])
+const internationalShippingServiceCodeTypeOption = ref([])
+const productSiteOption = ref([])
+const open = ref(false)
+const feeTable = ref([])
+const postData = ref({})
+const currencyDisplay = ref(null)
+const radioExcludeShipToLocation = ref('false')
+const descriptionEditorOption = ref([])
+const valueDescriptionOption = ref('None')
+const conditionOption = ref([])
+const conditionOptionLoading = ref(false);
+const paymentPolicies = ref([])
+const paymentPoliciesLoading = ref(false);
+const paymentPoliciesId = ref(null)
+const listingType = ref('FIXED_PRICE_ITEM')
+const btnDisabled = ref(false)
+const categoryTreeId = ref('');
+
+const form = ref({
+  itemDto: {
+    variations: {
+      variation: [],
+      variationSpecificsSet: {
+        nameValueList: []
+      }
+    },
+    sellerProfiles: {
+      sellerPaymentProfile: {paymentProfileID: null, paymentProfileName: null}
+    },
+    conditionID: null,
+    itemSpecifics: {
+      nameValueList: [
+        {
+          name: null,
+          value: [null]
+        }
+      ]
+    },
+    productListingDetails: {upc: null, ena: null},
+    pictureDetails: {
+      galleryType: 'GALLERY',
+      // PhotoDisplay:None,
+      pictureURL: []
+    },
+    title: null,
+    subTitle: null,
+    description: null,
+    currency: null,
+    sku: null,
+    listingDuration: null,
+    country: null,
+    dispatchTimeMax: null,
+    primaryCategory: {
+      categoryID: null
+    },
+    startPrice: {
+      currencyID: null,
+      value: 0
+    },
+    quantity: null,
+    returnPolicy: {
+      returnsAcceptedOption: 'ReturnsAccepted',
+      returnsWithinOption: null,
+      shippingCostPaidByOption: null,
+      refundOption: null,
+      internationalReturnsAcceptedOption: 'ReturnsAccepted',
+      internationalReturnsWithinOption: null,
+      internationalShippingCostPaidByOption: null,
+      internationalRefundOption: null,
+    },
+    shippingDetails: {
+      shippingType: null,
+      shippingServiceOptions: [{
+        shippingService: null,
+        shippingServiceCost: {currencyID: null, value: 0.0},
+        shippingServiceAdditionalCost: {currencyID: null, value: 0.0},
+      }],
+      internationalShippingServiceOption: [{
+        shippingService: null,
+        shippingServiceCost: {currencyID: null, value: 0.0},
+        shippingServiceAdditionalCost: {currencyID: null, value: 0.0},
+        shipToLocation: ['Worldwide']
+      }],
+      excludeShipToLocation: ['Worldwide']
+    },
+    shippingPackageDetails: {
+      shippingPackage: null,
+      measurementUnit: 'ENGLISH',
+      weightMajor: {value: 0, unit: 'ENGLISH'},
+      weightMinor: {value: 0, unit: 'ENGLISH'},
+      packageLength: {value: 0, unit: 'ENGLISH'},
+      packageWidth: {value: 0, unit: 'ENGLISH'},
+      packageDepth: {value: 0, unit: 'ENGLISH'},
+    },
+    listingType: 'FIXED_PRICE_ITEM',
+    location: null,
+    postalCode: null
+  },
+  shopId: null,
+  site: null,
+  eBayListingDTO: {
+    variationsType: false,
+    primaryCategoryName: null,
+    primaryCategoryIds: null,
+  }
+})
+const rules = reactive({
+  shopId: [{required: true, message: "上架店铺不能为空", trigger: "blur"}],
+  site: [{required: true, message: "站点不能为空", trigger: "blur"}],
+  'itemDto.title': [{required: true, message: "标题不能为空", trigger: "blur"}],
+  'itemDto.description': [{required: true, message: "描述不能为空", trigger: "blur"}],
+  'itemDto.currency': [{required: true, message: "币种不能为空", trigger: "blur"}],
+  'itemDto.listingDuration': [{required: true, message: "持续时间不能为空", trigger: "blur"}],
+  'itemDto.country': [{required: true, message: "国家不能为空", trigger: "blur"}],
+  'itemDto.dispatchTimeMax': [{required: true, message: "处理时间不能为空", trigger: "blur"}],
+  'itemDto.pictureDetails': [{required: true, message: "图片不能为空", trigger: "blur"}],
+  'itemDto.primaryCategory.categoryID': [{required: true, message: "类目不能为空", trigger: "blur"}],
+  'itemDto.startPrice.value': [{required: true, message: "货币不能为空", trigger: "blur"}],
+  'itemDto.shippingDetails.shippingType': [{required: true, message: "运输类型不能为空", trigger: "blur"}],
+  'itemDto.returnPolicy.returnsWithinOption': [{required: true, message: "请选择退货天数", trigger: "blur"}],
+  'itemDto.returnPolicy.shippingCostPaidByOption': [{required: true, message: "请选择退货费用承担方", trigger: "blur"}],
+  'itemDto.returnPolicy.refundOption': [{required: true, message: "请选择退货方式", trigger: "blur"}],
+  'itemDto.returnPolicy.internationalReturnsWithinOption': [{required: true, message: "请选择国际退货天数", trigger: "blur"}],
+  'itemDto.returnPolicy.internationalShippingCostPaidByOption': [{required: true, message: "请选择国际退货费用承担方", trigger: "blur"}],
+  'itemDto.returnPolicy.internationalRefundOption': [{required: true, message: "请选择国际退货方式", trigger: "blur"}],
+  'itemDto.postalCode': [{required: true, message: "邮编不能为空", trigger: "blur"}],
+  'itemDto.location': [{required: true, message: "请选择物品所在国家", trigger: "blur"}],
+  'itemDto.sku': [{required: true, message: "SKU不能为空", trigger: "blur"}],
+  'itemDto.listingType': [{required: true, message: "请选择刊登类型", trigger: "blur"}],
+  'itemDto.shippingDetails.shippingServiceOptions.shippingService': [{required: true, message: "请选择国内运输方式", trigger: "blur"}],
+  'itemDto.shippingDetails.internationalShippingServiceOption.shippingService': [{required: true, message: "请选择国际运输方式", trigger: "blur"}],
+  'itemDto.itemSpecifics.nameValueList.value': [{required: true, message: '不能为空', trigger: "blur"}]
+})
+
+function init() {
+  if (props.data) {
+    console.log(props.data)
+    form.value = props.data.detail
+
+    // 判断是不是变体
+    if (props.data.ebayListing.variationsType) {
+      listingType.value = 'variation'
+    }
+
+    // 处理类别
+    if (props.data.itemOther.ebayListingDTO && props.data.itemOther.ebayListingDTO.primaryCategoryIds) {
+      let primaryCategoryIds = JSON.parse(props.data.itemOther.ebayListingDTO.primaryCategoryIds)
+      valueParentLevel.value = ''
+      valueChildLevel.value = []
+      primaryCategoryIds.forEach((el, index) => {
+        if (index === 0) {
+          valueParentLevel.value = primaryCategoryIds[index]
+        } else {
+          valueChildLevel.value.push(el)
+        }
+      })
+
+      changeparentLevel(primaryCategoryIds[0])
+      changeChildLevel(valueChildLevel.value)
+    }
+
+    // 处理副类目
+    if (props.data.itemOther.ebayListingDTO && props.data.itemOther.ebayListingDTO.secondaryCategoryIds) {
+      let primaryCategoryIds = JSON.parse(props.data.itemOther.ebayListingDTO.secondaryCategoryIds)
+      valueParentLevel2.value = ''
+      valueChildLevel2.value = []
+      primaryCategoryIds.forEach((el, index) => {
+        if (index === 0) {
+          valueParentLevel2.value = primaryCategoryIds[index]
+        } else {
+          valueChildLevel2.value.push(el)
+        }
+      })
+      changeparentLevel2(primaryCategoryIds[0])
+      changeChildLevel2(valueChildLevel2.value)
+      secondaryCategorySwitch.value = true
+    }
+
+    // 处理描述模版
+    if (props.data.itemOther.ebayListingDTO && props.data.itemOther.ebayListingDTO.customText) {
+      let customText = ''
+      customText = JSON.parse(props.data.itemOther.ebayListingDTO.customText)
+      valueDescriptionOption.value = customText.templateType
+
+      if (form.value.itemDto.description) {
+        let description = form.value.itemDto.description
+        description = description.replaceAll('\\', '')
+        let startIndex = description.indexOf('<!-- description开始-->') + '<!-- description开始-->'.length
+        let endIndex = description.indexOf('<!-- description结束-->')
+        description = description.substring(startIndex, endIndex)
+        form.value.itemDto.description = description
+      }
+    }
+
+    // 处理多规格产品 upc和ena异常
+    if (!form.value.itemDto.productListingDetails) {
+      form.value.itemDto.productListingDetails = {upc: null, ena: null}
+    }
+
+    // 处理付款方式
+    if (form.value.itemDto.sellerProfiles) {
+      paymentPoliciesId.value = form.value.itemDto.sellerProfiles.sellerPaymentProfile.paymentProfileID
+    }
+
+    // 处理运输方式
+    if (form.value.itemDto.shippingDetails) {
+      // 国内
+      if (form.value.itemDto.shippingDetails.shippingServiceOptions) {
+        form.value.itemDto.shippingDetails.shippingServiceOptions.forEach(el => {
+          if (!el.shippingServiceAdditionalCost) {
+            el.shippingServiceAdditionalCost = {currencyID: form.value.itemDto.currency, value: 0.0}
+          }
+        })
+      }
+      // 国际
+      if (form.value.itemDto.shippingDetails.internationalShippingServiceOption) {
+        form.value.itemDto.shippingDetails.internationalShippingServiceOption.forEach(el => {
+          if (!el.shippingServiceAdditionalCost) {
+            el.shippingServiceAdditionalCost = {currencyID: form.value.itemDto.currency, value: 0.0}
+          }
+        })
+      }
+    }
+
+    // 处理包裹尺寸
+    form.value.itemDto.shippingPackageDetails.packageLength = form.value.itemDto.shippingPackageDetails.packageLength === null ? {value: 0, unit: form.value.itemDto.shippingPackageDetails.measurementUnit} : form.value.itemDto.shippingPackageDetails.packageLength
+    form.value.itemDto.shippingPackageDetails.packageWidth = form.value.itemDto.shippingPackageDetails.packageWidth === null ? {value: 0, unit: form.value.itemDto.shippingPackageDetails.measurementUnit} : form.value.itemDto.shippingPackageDetails.packageWidth
+    form.value.itemDto.shippingPackageDetails.packageDepth = form.value.itemDto.shippingPackageDetails.packageDepth === null ? {value: 0, unit: form.value.itemDto.shippingPackageDetails.measurementUnit} : form.value.itemDto.shippingPackageDetails.packageDepth
+
+  }
+  getSiteCodeEnum()
+  getListingDurationCodeEnum()
+  getShippingTypeCodeTypeEnum()
+  getProductSite()
+  getEbayDescriptionOption()
+  getCategoryFeaturesOption()
+  // getPaymentPoliciesOption()
+}
+
+init()
+
+// 获得物品状况
+function getCategoryFeaturesOption() {
+  conditionOptionLoading.value = true
+  getCategoryFeatures({shopId: form.value.shopId, site: form.value.site, categoryID: form.value.itemDto.primaryCategory.categoryID}).then(response => {
+    if (response.data.returnedCategory[0].conditionValues) {
+      conditionOption.value = response.data.returnedCategory[0].conditionValues.condition
+    }
+    conditionOptionLoading.value = false
+  })
+}
+
+// 获取付款方式
+function getPaymentPoliciesOption() {
+  paymentPoliciesLoading.value = true
+  getPaymentPolicies(form.value.shopId, form.value.site).then(response => {
+    paymentPolicies.value = response.data.paymentPolicies
+    paymentPoliciesLoading.value = false
+  })
+}
+
+// 付款方式触发
+function changePaymentPolicies(val) {
+  paymentPolicies.value.forEach(el => {
+    if (el.paymentPolicyId === val) {
+      form.value.itemDto.sellerProfiles.sellerPaymentProfile.paymentProfileID = val
+      form.value.itemDto.sellerProfiles.sellerPaymentProfile.paymentProfileName = el.name
+    }
+  })
+}
+
+// 描述模版
+function getEbayDescriptionOption() {
+  descriptionEditorOption.value = descriptionSelectOption()
+}
+
+// 获取站点枚举
+function getSiteCodeEnum() {
+  siteOption.value = []
+  site.value.forEach(el => {
+    if (siteList.value[el]) {
+      siteOption.value.push({label: siteList.value[el].siteCnName, value: el})
+    }
+  })
+}
+
+// 获取列表持续时间代码枚举
+function getListingDurationCodeEnum() {
+  listingDurationOption.value = []
+  listingDurationCodeEnum().forEach(el => {
+    listingDurationOption.value.push({label: el, value: el})
+  })
+}
+
+// 获取运输类型代码类型枚举
+function getShippingTypeCodeTypeEnum() {
+  shippingTypeOption.value = []
+  shippingTypeCodeTypeEnum().forEach(el => {
+    shippingTypeOption.value.push({label: el, value: el})
+  })
+}
+
+// 获取运输服务
+async function getShippingService() {
+  let service = []
+  let iService = []
+  let returnedShippingServiceDetails = await getShippingServiceDetails(form.value.shopId, form.value.site)
+
+  if (returnedShippingServiceDetails) {
+    returnedShippingServiceDetails.forEach(el => {
+      let label = el.description
+      if (el.shippingTimeMin && el.shippingTimeMax) {
+        label = label + '（' + el.shippingTimeMin + '-' + el.shippingTimeMax + '）'
+      }
+      label = label + ' -- ' + el.shippingService
+      let value = el.shippingService
+      if (el.internationalService) {
+        iService.push({label: label, value: value})
+      } else {
+        service.push({label: label, value: value})
+      }
+    })
+    shippingServiceCodeTypeOption.value = service
+    internationalShippingServiceCodeTypeOption.value = iService
+  }
+}
+
+async function getdShippingPackage() {
+  shippingPackageOption.value = []
+  let returnedShippingPackageDetails = await getdShippingPackageDetails(form.value.shopId, form.value.site)
+  returnedShippingPackageDetails.forEach(el => {
+    shippingPackageOption.value.push({label: el.description, value: el.shippingPackage})
+  })
+
+}
+
+// 获取物品所在地国家
+function getProductSite() {
+  getMarketplaceMap().then(response => {
+    productSiteOption.value = response.data
+    productSiteOption.value.forEach(e => {
+      e.key = e.label
+      e.children.forEach(el => {
+        el.label = el.country
+      })
+    })
+  })
+}
+
+// 根据选取的国家 对货币 地区 赋值
+function changeSite(val) {
+  form.value.itemDto.startPrice.currencyID = siteList.value[val].siteCurrency
+  form.value.itemDto.shippingDetails.shippingServiceOptions[0].shippingServiceCost.currencyID = siteList.value[val].siteCurrency
+  form.value.itemDto.shippingDetails.shippingServiceOptions[0].shippingServiceAdditionalCost.currencyID = siteList.value[val].siteCurrency
+  form.value.itemDto.shippingDetails.internationalShippingServiceOption[0].shippingServiceCost.currencyID = siteList.value[val].siteCurrency
+  form.value.itemDto.shippingDetails.internationalShippingServiceOption[0].shippingServiceAdditionalCost.currencyID = siteList.value[val].siteCurrency
+  form.value.itemDto.currency = siteList.value[val].siteCurrency
+  form.value.itemDto.country = siteList.value[val].territory
+  currencyDisplay.value = siteList.value[val].currencyDisplay
+  getShippingService()
+  console.log(form.value.site && form.value.shopId)
+  if (form.value.site && form.value.shopId && !categoryTreeId.value) {
+    getDefaultCategoryTree()
+  }
+}
+
+// 回调 获得店铺ID 然后获取一级分类
+async function changeSelectShop(value) {
+  if (value.shopId !== undefined) {
+    form.value.shopId = value.shopId
+    if (form.value.site && form.value.shopId) {
+      await getDefaultCategoryTree()
+      if (categoryTreeId.value) {
+        optionParentLevel.value = await getCategory()
+      }
+    }
+  }
+}
+
+async function getDefaultCategoryTree() {
+  await getDefaultCategoryTreeId(form.value.site, form.value.shopId).then(response => {
+    categoryTreeId.value = response.data.categoryTreeId
+    propsChildLevel.value = []
+    propsChildLevel2.value = []
+  })
+}
+
+// 获得一级分类
+function getCategory() {
+  return {
+    lazy: true,
+    lazyLoad(node, resolve) {
+      let l = []
+      getCategoryCache('', categoryTreeId.value, form.value.shopId).then(response => {
+        response.data.map(item => {
+          l.push({
+            value: item.category.categoryId,
+            label: item.category.categoryName,
+            leaf: true
+          })
+        })
+        resolve(l)
+      })
+
+
+    }
+  }
+}
+
+// 点击一级分类后  获取二级往后的分类
+function changeparentLevel(v) {
+  propsChildLevel.value = getChildLevel(v[0])
+}
+
+function getChildLevel(cid) {
+  return {
+    lazy: true,
+    lazyLoad(node, resolve) {
+      if (categoryTreeId.value) {
+        getCategoryCache(cid, categoryTreeId.value, form.value.shopId).then(response => {
+          let nodes = dg(response.data)
+          resolve(nodes)
+        })
+      } else {
+        getDefaultCategoryTreeId(form.value.site, form.value.shopId).then(response => {
+          categoryTreeId.value = response.data.categoryTreeId
+          getCategoryCache(cid, categoryTreeId.value, form.value.shopId).then(response => {
+            let nodes = dg(response.data)
+            resolve(nodes)
+          })
+        })
+      }
+    }
+  }
+}
+
+// 递归后面的分类
+function dg(res) {
+  let l = []
+  let children = []
+  res.map((item) => {
+    if (item.childCategoryTreeNodes) {
+      children = dg(item.childCategoryTreeNodes)
+    }
+    l.push({
+      value: item.category.categoryId,
+      label: item.category.categoryName,
+      leaf: item.leafCategoryTreeNode,
+      childCategoryTreeNodes: item.childCategoryTreeNodes,
+      children: children
+    })
+  })
+  return l
+}
+
+// 选取二级分类值后 获取分类对应属性
+async function changeChildLevel(v) {
+  try {
+    // formLoading.value = true
+    // 从缓存中获取所选类目的属性信息
+    if (form.value.site && form.value.shopId && !categoryTreeId.value) {
+      await getDefaultCategoryTree()
+    }
+
+    const response = await getItemAspectsForCategoryCache(v[v.length - 1], categoryTreeId.value, form.value.shopId);
+    const aspects = response.data.data.aspects;
+    const nameValueList = form.value.itemDto.itemSpecifics.nameValueList;
+
+    attributes.value = aspects;
+
+    let itemSpecificsL = {nameValueList: []};
+    aspects.forEach(e => {
+      nameValueList.forEach(el => {
+        if (el.name === e.localizedAspectName) {
+          itemSpecificsL.nameValueList.push({name: e.localizedAspectName, value: el.value})
+        } else {
+          itemSpecificsL.nameValueList.push({name: e.localizedAspectName, value: []})
+        }
+      })
+    })
+
+    // 更新商品属性信息
+    form.value.itemDto.itemSpecifics = itemSpecificsL;
+
+    if (!cascaderChildData.value && props.data.itemOther.ebayListingDTO.primaryCategoryName && props.data.itemOther.ebayListingDTO.primaryCategoryName !== 'null') {
+      // 如果已有子级类目信息，则使用该信息
+      cascaderChildData.value = JSON.parse(props.data.itemOther.ebayListingDTO.primaryCategoryName)
+    } else {
+      // 否则，监听子级类目选择器的变化，获取所选类目路径
+      let interval = setInterval(() => {
+        let cascaderChild = proxy.$refs['refCascaderChild'];
+        let cascaderParent = proxy.$refs['refCascaderParent'];
+        if (cascaderChild && cascaderChild.getCheckedNodes().length > 0 && cascaderParent && cascaderParent.getCheckedNodes().length > 0) {
+          let cnc = cascaderChild.getCheckedNodes()[0].pathLabels;
+          let l = [cascaderParent.getCheckedNodes()[0].label];
+          cnc.forEach(el => {
+            l.push(el);
+          })
+          cascaderChildData.value = l;
+          clearInterval(interval);
+        }
+      }, 1000);
+    }
+
+    formLoading.value = false;
+    form.value.itemDto.primaryCategory.categoryID = v[v.length - 1];
+  } catch (error) {
+    console.error(error);
+    // 处理错误
+  }
+}
+
+// 二级类目开关
+function clickSecondaryCategorySwitch(sw) {
+  secondaryCategorySwitch.value = sw === 'add';
+}
+
+// 点击一级分类后  获取二级往后的分类
+function changeparentLevel2(v) {
+  propsChildLevel2.value = getChildLevel(v[0])
+}
+
+// 选取二级分类值后 获取分类对应属性
+function changeChildLevel2(v) {
+  const getCheckedNodes = () => {
+    const refCascaderChild2 = proxy.$refs['refCascaderChild2'];
+    const refCascaderParent2 = proxy.$refs['refCascaderParent2'];
+
+    if (refCascaderChild2) {
+      const cnc = refCascaderChild2.getCheckedNodes()[0].pathLabels;
+      return [refCascaderParent2.getCheckedNodes()[0].label, ...cnc];
+    } else {
+      return [];
+    }
+  }
+
+  if (!cascaderChildData2.value && props.data.itemOther.ebayListingDTO.secondaryCategoryName) {
+    cascaderChildData2.value = JSON.parse(props.data.itemOther.ebayListingDTO.secondaryCategoryName);
+  } else {
+    cascaderChildData2.value = setInterval(() => {
+      const l = getCheckedNodes();
+      cascaderChildData2.value = l;
+      return l;
+    }, 1000);
+  }
+
+  form.value.itemDto.secondaryCategory.categoryID = v[v.length - 1];
+}
+
+// 富文本 描述组件回调赋值
+function changeDescriptionEditor(value) {
+  if (value.valueHtml) {
+    form.value.itemDto.description = value.valueHtml
+  }
+}
+
+function changeItemLocationEditor() {
+  if (value.valueHtml) {
+    // form.value.itemDto.description = value.valueHtml
+  }
+}
+
+// 选择运送到指定国家的金额
+function changeShipToLocationWorldwide(val, index) {
+  if (val.length > 0) {
+    form.value.itemDto.shippingDetails.internationalShippingServiceOption[index].shipToLocation = ['Worldwide']
+  }
+}
+
+// 选择运送全世界还是不运送到某些国家
+function changeExcludeShipToLocation(val) {
+  if (val === 'false') {
+    form.value.itemDto.shippingDetails.excludeShipToLocation = ['Worldwide']
+  } else {
+    form.value.itemDto.shippingDetails.excludeShipToLocation = []
+  }
+}
+
+// 多规格子页面回调
+async function changeVariations(val) {
+  if (val.tableList) {
+    if (!form.value.itemDto.variations) {
+      form.value.itemDto.variations = {variation: [], variationSpecificsSet: {nameValueList: []}}
+    }
+    form.value.itemDto.variations.variation = []
+
+    let variations = {variation: [], pictures: [], variationSpecificsSet: {nameValueList: []}}
+    val.tableList.forEach((el, index) => {
+      variations.variation.push({
+        sku: el.sku,
+        quantity: el.quantity,
+        startPrice: el.startPrice,
+        variationSpecifics: {
+          nameValueList: []
+        },
+        variationProductListingDetails: {
+          ean: el.ean,
+          upc: el.upc,
+          nameValueList: []
+        }
+      })
+      val.variationList.forEach((e, i) => {
+        variations.variation[index].variationProductListingDetails.nameValueList.push({name: e.name, value: [el[e.name]]})
+        variations.variation[index].variationSpecifics.nameValueList.push({name: e.name, value: [el[e.name]]})
+      })
+    })
+    if (val.variationList[0]) {
+
+      variations.pictures.push({
+        variationSpecificName: val.variationList[0].name,
+        variationSpecificPictureSet: []
+      })
+
+      val.variationList[0].value.forEach(el => {
+        let pl = []
+        if (val.variationList[0].picture[el] && val.variationList[0].picture[el].picture) {
+          val.variationList[0].picture[el].picture.forEach(pe => {
+            pl.push(pe)
+          })
+        }
+        variations.pictures[0].variationSpecificPictureSet.push({variationSpecificValue: el, pictureURL: pl})
+      })
+
+    }
+    form.value.itemDto.variations = variations
+    form.value.itemDto.variations.variationSpecificsSet.nameValueList = val.variationList
+  }
+}
+
+// 刊登校验
+function handleVerifyPublish() {
+  proxy.$refs["refForm"].validate(valid => {
+    if (valid) {
+      formLoading.value = true
+      btnDisabled.value = true
+      if (valueDescriptionOption.value) {
+        let dHtml = ''
+        descriptionEditorOption.value.forEach(el => {
+          if (el.label === valueDescriptionOption.value) {
+            dHtml = el.value.toString()
+          }
+        })
+
+        dHtml = dHtml.replace('{{description}}', '<!-- description开始-->' + form.value.itemDto.description + '<!-- description结束-->')
+        form.value.itemDto.pictureDetails.pictureURL.forEach((el, index) => {
+          dHtml = dHtml.replaceAll('{{photo' + (index + 1) + '}}', el)
+        })
+        form.value.itemDto.description = dHtml
+      }
+
+      let classifys = []
+      classifys.push(valueParentLevel.value[0])
+      valueChildLevel.value.forEach(el => {
+        classifys.push(el)
+      })
+
+      form.value.itemDto.listingType = listingType.value
+
+      if (listingType.value === 'variation') {
+        form.value.itemDto.startPrice = null
+        form.value.itemDto.quantity = null
+        form.value.itemDto.listingType = 'FIXED_PRICE_ITEM'
+      } else {
+        form.value.itemDto.variations = null
+      }
+
+      postData.value = {
+        itemDto: form.value.itemDto,
+        site: form.value.site,
+        shopId: form.value.shopId,
+        variationsType: listingType.value === 'variation',
+        eBayListingDTO: {
+          primaryCategoryName: JSON.stringify(cascaderChildData.value),
+          primaryCategoryIds: JSON.stringify(classifys),
+          customText: JSON.stringify({templateType: valueDescriptionOption.value}),
+        }
+      }
+
+      if (props.data.detail.id) {
+        postData.value.id = props.data.detail.id
+      }
+
+      verifyAddItem(postData.value).then(response => {
+        postData.value.id = response.data.id
+        feeTable.value = response.data.ebayFeesDto.fee
+        proxy.$modal.msgSuccess("校验通过");
+        open.value = true
+        formLoading.value = false
+        btnDisabled.value = false
+
+      }, error => {
+        console.log('error')
+        proxy.$modal.msgError("校验失败");
+        formLoading.value = false
+        btnDisabled.value = false
+      })
+    }
+  });
+}
+
+// 刊登
+function handlePublish() {
+  formLoading.value = true
+  btnDisabled.value = true
+  open.value = false
+  addItem(postData.value).then(response => {
+    formLoading.value = false
+    btnDisabled.value = false
+
+    proxy.$modal.msgSuccess("刊登成功");
+    proxy.$emit('change', {openSwitch: false})
+  }, error => {
+    console.log('error')
+    proxy.$modal.msgError("刊登失败");
+    formLoading.value = false
+    btnDisabled.value = false
+  })
+}
+
+
+</script>
+
+<style scoped lang="scss">
+.title_b {
+  font-size: 18px;
+  border-left: 5px solid #409eff;
+  padding-left: 10px;
+  margin-bottom: 20px;
+  margin-top: 30px;
+}
+
+.avatar-uploader .avatar {
+  width: 148px;
+  height: 148px;
+  display: block;
+}
+
+.avatar-uploader {
+  border: 1px dashed var(--el-border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: var(--el-transition-duration-fast);
+}
+
+.avatar-uploader .el-upload:hover {
+  border-color: var(--el-color-primary);
+}
+
+.el-icon.avatar-uploader-icon {
+  font-size: 28px;
+  color: #8c939d;
+  width: 148px;
+  height: 148px;
+  text-align: center;
+}
+
+</style>
